@@ -1,0 +1,19 @@
+# Curated CISPA subset for L1.
+# Selection policy:
+# - keep CISPA signal that is meaningfully additive over h1spec and TFB
+# - focus on HTTP/1.1 server core semantics
+# - prefer broadly applicable rules over rules that mostly pass as inapplicable
+#
+# DIRECT: parser and method semantics
+content_head_request
+reject_msgs_with_whitespace_between_startline_and_first_header_field
+code_400_if_msg_with_whitespace_between_header_field_and_colon
+#
+# PROXY: response framing and status semantics
+duplicate_fields
+transfer_encoding_http11
+post_invalid_response_codes
+no_bare_cr
+#
+# RETRO: cross-request consistency
+content_length_same_head_get

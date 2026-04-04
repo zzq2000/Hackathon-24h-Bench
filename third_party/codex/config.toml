@@ -1,0 +1,32 @@
+model = "gpt-5.1-codex-hubeu2"
+model_provider = "wrapper"
+stream_idle_timeout_ms = 300000
+
+web_search = "disabled"
+
+[sandbox_workspace_write]
+network_access = true
+
+[model_providers.wrapper]
+name = "wrapper"
+base_url = "http://localhost:4003"
+wire_api = "responses"
+env_key = "FAKE_KEY"
+
+[profiles.gpt-4o]
+model_provider = "wrapper"
+model = "gpt-4o"
+
+[profiles.gpt-5]
+model_provider = "wrapper"
+model = "gpt-5-ra"
+stream_idle_timeout_ms = 300000
+
+[profiles.gpt-5_1-codex]
+model_provider = "wrapper"
+model = "gpt-5.1-codex-hubeu2"
+stream_idle_timeout_ms = 300000
+
+[profiles.gpt-4_1-mini]
+model_provider = "wrapper"
+model = "gpt-4.1-mini"

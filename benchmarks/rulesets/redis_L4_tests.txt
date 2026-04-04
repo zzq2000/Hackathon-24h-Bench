@@ -1,0 +1,11 @@
+# Redis L4: Transactions + pipelining + multi-database
+# Tests MULTI/EXEC/DISCARD/WATCH and SELECT.
+#
+multi_exec_basic
+multi_discard_basic
+watch_basic
+watch_modified
+select_basic
+flushdb_basic
+flushall_basic
+pipeline_multi_commands

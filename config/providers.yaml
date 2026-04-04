@@ -1,0 +1,244 @@
+# ============================================================
+# providers — 每个 provider 的连接/认证定义
+# ============================================================
+providers:
+
+  # ---- native: 直连原生 API ----
+  anthropic:
+    type: native
+    display_name: "Anthropic"
+    api_type: anthropic
+    api_key_env: [ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN]
+    api_key_mirror:
+      ANTHROPIC_API_KEY: ANTHROPIC_AUTH_TOKEN
+      ANTHROPIC_AUTH_TOKEN: ANTHROPIC_API_KEY
+    base_url_env: ANTHROPIC_BASE_URL
+
+  openai:
+    type: native
+    display_name: "OpenAI"
+    api_type: openai
+    api_key_env: [OPENAI_API_KEY]
+    base_url_env: OPENAI_BASE_URL
+
+  google:
+    type: native
+    display_name: "Google"
+    api_type: google
+    api_key_env: [GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY]
+    api_key_mirror:
+      GEMINI_API_KEY: GOOGLE_GENERATIVE_AI_API_KEY
+    auth_alternatives: [GOOGLE_GENAI_USE_VERTEXAI, GOOGLE_GENAI_USE_GCA]
+
+  moonshot:
+    type: native
+    display_name: "Moonshot/Kimi"
+    api_type: openai
+    api_key_env: [KIMI_API_KEY, MOONSHOT_API_KEY]
+    api_key_mirror:
+      MOONSHOT_API_KEY: KIMI_API_KEY
+    base_url_env: KIMI_BASE_URL
+    default_base_url: "https://api.moonshot.ai/v1"
+    fallback_base_urls: ["https://api.moonshot.cn/v1"]
+
+  xai:
+    type: native
+    display_name: "X.AI"
+    api_type: openai
+    api_key_env: [GROK_API_KEY, XAI_API_KEY]
+    base_url_env: GROK_BASE_URL
+
+  minimax:
+    type: native
+    display_name: "MiniMax"
+    api_type: openai
+    api_key_env: [MINIMAX_API_KEY]
+    base_url_env: MINIMAX_BASE_URL
+    default_base_url: "https://api.minimax.chat/v1"
+
+  dashscope:
+    type: native
+    display_name: "DashScope/Alibaba"
+    api_type: openai
+    api_key_env: [DASHSCOPE_API_KEY, QWEN_API_KEY]
+
+  # ---- gateway: 协议兼容网关 ----
+  zai_gateway:
+    type: gateway
+    display_name: "Z.AI Claude Gateway"
+    api_type: anthropic
+    parent_provider: anthropic
+    api_key_env: [ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN]
+    api_key_mirror:
+      ANTHROPIC_API_KEY: ANTHROPIC_AUTH_TOKEN
+      ANTHROPIC_AUTH_TOKEN: ANTHROPIC_API_KEY
+    base_url_env: ANTHROPIC_BASE_URL
+    default_base_url: "https://api.z.ai/api/anthropic"
+    extra_env:
+      API_TIMEOUT_MS: "3000000"
+
+  bailian_claude_gateway:
+    type: gateway
+    display_name: "Bailian Claude Gateway"
+    api_type: anthropic
+    parent_provider: anthropic
+    api_key_env: [ANTHROPIC_AUTH_TOKEN, ANTHROPIC_API_KEY, DASHSCOPE_API_KEY]
+    api_key_mirror:
+      ANTHROPIC_API_KEY: ANTHROPIC_AUTH_TOKEN
+      ANTHROPIC_AUTH_TOKEN: ANTHROPIC_API_KEY
+    base_url_env: ANTHROPIC_BASE_URL
+    default_base_url: "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic"
+    extra_env:
+      API_TIMEOUT_MS: "3000000"
+
+  moonshot_claude_gateway:
+    type: gateway
+    display_name: "Moonshot Claude Gateway"
+    api_type: anthropic
+    parent_provider: anthropic
+    api_key_env: [KIMI_API_KEY, MOONSHOT_API_KEY]
+    api_key_mirror:
+      MOONSHOT_API_KEY: KIMI_API_KEY
+    base_url_env: ANTHROPIC_BASE_URL
+    default_base_url: "https://api.moonshot.ai/anthropic"
+    extra_env:
+      API_TIMEOUT_MS: "3000000"
+
+  minimax_claude_gateway:
+    type: gateway
+    display_name: "MiniMax Claude Gateway"
+    api_type: anthropic
+    parent_provider: anthropic
+    api_key_env: [MINIMAX_API_KEY, ANTHROPIC_AUTH_TOKEN, ANTHROPIC_API_KEY]
+    api_key_mirror:
+      ANTHROPIC_API_KEY: ANTHROPIC_AUTH_TOKEN
+      ANTHROPIC_AUTH_TOKEN: ANTHROPIC_API_KEY
+    base_url_env: ANTHROPIC_BASE_URL
+    default_base_url: "https://api.minimax.io/anthropic"
+    extra_env:
+      API_TIMEOUT_MS: "3000000"
+
+  bailian_openai_gateway:
+    type: gateway
+    display_name: "Bailian OpenAI-Compatible Gateway"
+    api_type: openai
+    parent_provider: openai
+    api_key_env: [DASHSCOPE_API_KEY, CLINE_API_KEY, OPENAI_API_KEY]
+    base_url_env: CLINE_BASE_URL
+    default_base_url: "https://coding.dashscope.aliyuncs.com/v1"
+
+  # ---- proxy: 通用路由/代理层 (一个 key → 多模型) ----
+  openrouter:
+    type: proxy
+    display_name: "OpenRouter"
+    api_type: openai
+    api_key_env: [OPENROUTER_API_KEY]
+    base_url_env: OPENROUTER_BASE_URL
+    default_base_url: "https://openrouter.ai/api/v1"
+    model_prefix: ""
+    extra_headers:
+      HTTP-Referer: "${OPENROUTER_REFERER:-}"
+      X-Title: "${OPENROUTER_TITLE:-LongAgentBench}"
+
+  litellm:
+    type: proxy
+    display_name: "LiteLLM Proxy"
+    api_type: openai
+    api_key_env: [LITELLM_API_KEY, LITELLM_MASTER_KEY, OPENAI_API_KEY]
+    base_url_env: LITELLM_BASE_URL
+    default_base_url: "http://localhost:4000"
+    model_prefix: ""
+    allow_any_model: true
+
+  azure_openai:
+    type: proxy
+    display_name: "Azure OpenAI"
+    api_type: openai
+    api_key_env: [AZURE_OPENAI_API_KEY, AZURE_API_KEY]
+    base_url_env: AZURE_OPENAI_BASE_URL
+    extra_env:
+      AZURE_API_VERSION: "${AZURE_API_VERSION:-2024-02-01}"
+    model_prefix: ""
+    allow_any_model: true
+
+  vllm:
+    type: proxy
+    display_name: "vLLM"
+    api_type: openai
+    api_key_env: [VLLM_API_KEY]
+    base_url_env: VLLM_BASE_URL
+    default_base_url: "http://localhost:8000/v1"
+    model_prefix: ""
+    allow_any_model: true
+
+  sglang:
+    type: proxy
+    display_name: "SGLang"
+    api_type: openai
+    api_key_env: [SGLANG_API_KEY]
+    base_url_env: SGLANG_BASE_URL
+    default_base_url: "http://localhost:30000/v1"
+    model_prefix: ""
+    allow_any_model: true
+
+# ============================================================
+# model_catalog — 模型名 → 默认 provider + 别名
+# ============================================================
+model_catalog:
+  glm-5.1:     { provider: zai_gateway, aliases: [GLM-5.1], tags: [zai] }
+  glm-5-turbo: { provider: zai_gateway, aliases: [GLM-5-Turbo], tags: [zai] }
+  glm-5:       { provider: zai_gateway, aliases: [GLM-5], tags: [zai] }
+  glm-4.7:     { provider: zai_gateway, aliases: [GLM-4.7], tags: [zai] }
+  qwen3.5-plus: { provider: bailian_claude_gateway, aliases: [Qwen3.5-Plus], tags: [bailian] }
+  qwen3-max-2026-01-23: { provider: bailian_claude_gateway, tags: [bailian] }
+  qwen3-coder-next: { provider: bailian_claude_gateway, tags: [bailian] }
+  qwen3-coder-plus: { provider: bailian_claude_gateway, tags: [bailian] }
+  minimax-m2.5: { provider: bailian_claude_gateway, aliases: [MiniMax-M2.5], tags: [bailian] }
+  minimax-m2.7: { provider: minimax_claude_gateway, aliases: [MiniMax-M2.7], tags: [minimax] }
+  kimi-k2.5:   { provider: moonshot, aliases: [Kimi-K2.5], tags: [bailian] }
+
+# ============================================================
+# agent_providers — 每个 agent 可使用的 provider 列表
+# ============================================================
+agent_providers:
+  codex:
+    model_env: CODEX_MODEL
+    providers: [openai, litellm, openrouter]
+  claude:
+    model_env: CLAUDE_MODEL
+    provider_env: CLAUDE_PROVIDER
+    providers: [anthropic, zai_gateway, bailian_claude_gateway, moonshot_claude_gateway, minimax_claude_gateway, litellm, openrouter]
+    provider_aliases:
+      zai: zai_gateway
+      z.ai: zai_gateway
+      bailian: bailian_claude_gateway
+      dashscope: bailian_claude_gateway
+      moonshot: moonshot_claude_gateway
+      kimi: moonshot_claude_gateway
+      minimax: minimax_claude_gateway
+      default: anthropic
+  gemini:
+    model_env: GEMINI_MODEL
+    providers: [google, litellm, openrouter, vllm, sglang]
+  kimi:
+    model_env: KIMI_MODEL
+    providers: [moonshot, litellm, openrouter, vllm, sglang]
+  opencode:
+    model_env: OPENCODE_MODEL
+    providers: [openai, anthropic, google, xai, openrouter, dashscope, bailian_claude_gateway, litellm, azure_openai, vllm, sglang]
+    multi_key: true
+  qwen:
+    model_env: QWEN_MODEL
+    providers: [dashscope, openai, litellm, openrouter, vllm, sglang]
+  grok:
+    model_env: GROK_MODEL
+    providers: [xai, litellm, openrouter, vllm, sglang]
+  cline:
+    model_env: CLINE_MODEL
+    provider_env: CLINE_PROVIDER
+    providers: [anthropic, openai, bailian_openai_gateway, litellm, openrouter, vllm, sglang]
+    provider_aliases:
+      bailian: bailian_openai_gateway
+      dashscope: bailian_openai_gateway
+      openai-compatible: openai
+      openai_compatible: openai

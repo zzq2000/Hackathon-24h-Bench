@@ -1,0 +1,45 @@
+#### 15.7.8.6 RESET Statement
+
+```sql
+RESET reset_option [, reset_option] ...
+
+reset_option: {
+    MASTER
+  | REPLICA
+  | SLAVE
+}
+```
+
+The [`RESET`](reset.md "15.7.8.6 RESET Statement") statement is used to
+clear the state of various server operations. You must have the
+[`RELOAD`](privileges-provided.md#priv_reload) privilege to execute
+[`RESET`](reset.md "15.7.8.6 RESET Statement").
+
+For information about the [`RESET
+PERSIST`](reset-persist.md "15.7.8.7 RESET PERSIST Statement") statement that removes persisted global system
+variables, see [Section 15.7.8.7, “RESET PERSIST Statement”](reset-persist.md "15.7.8.7 RESET PERSIST Statement").
+
+[`RESET`](reset.md "15.7.8.6 RESET Statement") acts as a stronger version
+of the [`FLUSH`](flush.md "15.7.8.3 FLUSH Statement") statement. See
+[Section 15.7.8.3, “FLUSH Statement”](flush.md "15.7.8.3 FLUSH Statement").
+
+The [`RESET`](reset.md "15.7.8.6 RESET Statement") statement causes an
+implicit commit. See [Section 15.3.3, “Statements That Cause an Implicit Commit”](implicit-commit.md "15.3.3 Statements That Cause an Implicit Commit").
+
+The following list describes the permitted
+[`RESET`](reset.md "15.7.8.6 RESET Statement") statement
+*`reset_option`* values:
+
+- [`RESET MASTER`](reset-master.md "15.4.1.2 RESET MASTER Statement")
+
+  Deletes all binary logs listed in the index file, resets the
+  binary log index file to be empty, and creates a new binary
+  log file.
+- [`RESET
+  REPLICA`](reset-replica.md "15.4.2.4 RESET REPLICA Statement")
+
+  Makes the replica forget its replication position in the
+  source binary logs. Also resets the relay log by deleting
+  any existing relay log files and beginning a new one. Use
+  `RESET REPLICA` in place of `RESET
+  SLAVE` from MySQL 8.0.22.

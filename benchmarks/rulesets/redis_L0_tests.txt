@@ -1,0 +1,16 @@
+# Redis L0: RESP2 protocol parsing + minimal command set
+# Selection policy:
+# - RESP2 inline and bulk string parsing
+# - Core commands: PING, ECHO, SET, GET, DEL, EXISTS
+# - Error handling for unknown commands
+#
+protocol_inline_ping
+protocol_bulk_ping
+set_get_basic
+del_single
+del_multi
+exists_single
+exists_multi
+echo_basic
+command_response
+error_unknown_command

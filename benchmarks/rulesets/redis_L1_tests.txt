@@ -1,0 +1,27 @@
+# Redis L1: String commands + expiry + key management
+# Builds on L0, adds string operations, expiry, and key management commands.
+#
+set_ex
+set_px
+set_nx
+set_xx
+setnx_basic
+setex_basic
+getset_basic
+incr_basic
+decr_basic
+incrby_basic
+decrby_basic
+incrbyfloat_basic
+append_basic
+strlen_basic
+mget_basic
+mset_basic
+expire_basic
+ttl_basic
+pttl_basic
+persist_basic
+keys_pattern
+type_string
+rename_basic
+dbsize_basic

@@ -1,0 +1,88 @@
+FROM python:3.10-slim
+
+# Target agent CLI to install in this image.
+# Supported: codex, claude, gemini, kimi, opencode, qwen, grok, cline, all
+ARG TARGET_AGENT=all
+ARG INSTALL_MYSQL_CLIENT=false
+
+# Install Node.js 22.x and required build tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git curl build-essential ca-certificates gnupg procps && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | \
+    gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" \
+    > /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Optionally install MySQL client tooling for database SUT debugging/tests.
+RUN if [ "$INSTALL_MYSQL_CLIENT" = "true" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends default-mysql-client && \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Install agent CLIs globally (npm)
+RUN set -eux; \
+    case "$TARGET_AGENT" in \
+      codex) npm install -g @openai/codex@latest ;; \
+      claude) npm install -g @anthropic-ai/claude-code@latest ;; \
+      gemini) npm install -g @google/gemini-cli@latest ;; \
+      opencode) npm install -g opencode-ai@latest ;; \
+      qwen) npm install -g @qwen-code/qwen-code@latest ;; \
+      grok) npm install -g grok-cli@latest ;; \
+      cline) npm install -g cline@latest ;; \
+      kimi) : ;; \
+      all) npm install -g \
+        @openai/codex@latest \
+        @anthropic-ai/claude-code@latest \
+        @google/gemini-cli@latest \
+        opencode-ai@latest \
+        @qwen-code/qwen-code@latest \
+        grok-cli@latest \
+        cline@latest ;; \
+      *) echo "Unsupported TARGET_AGENT: $TARGET_AGENT" >&2; exit 1 ;; \
+    esac
+
+# Python dependencies
+COPY requirements.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Create non-root user with configurable UID/GID
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN groupadd --gid $USER_GID agent 2>/dev/null || groupadd agent && \
+    useradd --uid $USER_UID --gid agent -m -s /bin/bash agent
+
+# Create workspace directories (database and message_queue for both system types)
+RUN mkdir -p /workspace/database /workspace/message_queue /workspace/sessions /workspace/controller /workspace/custom_agents && \
+    chown -R agent:agent /workspace
+
+# Copy project code needed by the controller at runtime.
+#
+# The controller dynamically imports `sut` and loads `config/system.*.yaml` to build
+# system-specific prompts (e.g. message_queue). Without these, prompt loading
+# fails and the controller falls back to the legacy database prompt.
+COPY --chown=agent:agent code_agent_controller/ /workspace/controller/code_agent_controller/
+COPY --chown=agent:agent sut/ /workspace/controller/sut/
+COPY --chown=agent:agent config/ /workspace/controller/config/
+
+WORKDIR /workspace
+USER agent
+
+# Environment setup
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/workspace/controller \
+    HOME=/workspace \
+    PATH=/workspace/.local/bin:$PATH \
+    CONTAINER_MODE=true \
+    SESSION_DIR=/workspace/sessions
+
+# Model and API key variables are passed at runtime via -e
+
+# Kimi Code CLI is distributed via official install script (not npm registry).
+RUN if [ "$TARGET_AGENT" = "all" ] || [ "$TARGET_AGENT" = "kimi" ]; then \
+      curl -fsSL https://code.kimi.com/install.sh | bash; \
+    fi
+
+ENTRYPOINT ["python", "-m", "code_agent_controller"]

@@ -1,0 +1,94 @@
+system:
+  type: redis_kvstore
+  description: "Redis-compatible KV store"
+  target_dir: ./workspace/redis_kvstore
+  default_port: 6379
+
+redis_kvstore:
+  data_dir: ./data
+  database_count: 16
+
+docker:
+  network_mode: "host"
+  add_host_gateway: true
+
+benchmarks:
+  - name: redis_bench
+    enabled: true
+
+redis_bench:
+  network_mode: "host"
+  ruleset_dir: ./benchmarks/rulesets
+  tcl_repo: "https://github.com/redis/redis.git"
+  tcl_repo_ref: "7.2.4"
+  tcl_patch_dir: ./benchmarks/implementations/redis_tcl_patches
+  redis_benchmark_image: "redis:7.2.4-alpine"
+  ycsb_runner_image: "longagentbench/ycsb-runner:0.17.0-temurin11"
+  ycsb_runner_dockerfile: "./benchmarks/implementations/docker/ycsb_runner/Dockerfile"
+  ycsb_runner_context: "./benchmarks/implementations/docker/ycsb_runner"
+  ycsb_base_image: "eclipse-temurin:11-jre-jammy"
+  ycsb_release_url: "https://github.com/brianfrankcooper/YCSB/releases/download/0.17.0/ycsb-redis-binding-0.17.0.tar.gz"
+  ycsb_datatype: "string"
+  memtier_docker_image: "redislabs/memtier_benchmark:2.1.0"
+  # No performance thresholds in first version;
+  # throughput and latency are recorded to metrics only.
+
+tiers:
+  L0:
+    description: "RESP2 + minimal commands"
+    timeout_multiplier: 1.0
+    redis_bench:
+      suites: [tcl]
+      tcl_ruleset: redis_L0_tests.txt
+
+  L1:
+    description: "Strings + expire + key management"
+    timeout_multiplier: 1.0
+    redis_bench:
+      suites: [tcl, redis_benchmark]
+      tcl_ruleset: redis_L1_tests.txt
+      redis_benchmark_tests: [set, get, incr]
+
+  L2:
+    description: "Core data structures"
+    timeout_multiplier: 1.5
+    redis_bench:
+      suites: [tcl, redis_benchmark]
+      tcl_ruleset: redis_L2_tests.txt
+      redis_benchmark_tests:
+        [ping_inline, ping_mbulk, lpush, rpush, lpop, rpop, sadd, hset, spop, zadd, zpopmin, lrange_100, lrange_300, lrange_500, lrange_600, mset_10]
+
+  L3:
+    description: "Persistence + pubsub"
+    timeout_multiplier: 2.0
+    redis_bench:
+      suites: [tcl]
+      tcl_ruleset: redis_L3_tests.txt
+
+  L4:
+    description: "Transactions + pipelining"
+    timeout_multiplier: 2.0
+    redis_bench:
+      suites: [tcl, redis_benchmark]
+      tcl_ruleset: redis_L4_tests.txt
+      redis_benchmark_tests: [pipeline_16]
+
+  L5:
+    description: "YCSB baseline workloads A-C"
+    timeout_multiplier: 3.0
+    redis_bench:
+      suites: [ycsb]
+      ycsb_workloads: [a, b, c]
+
+  L6:
+    description: "L6-only validation + advanced workloads + stress"
+    timeout_multiplier: 4.0
+    redis_bench:
+      suites: [tcl, ycsb, memtier]
+      tcl_ruleset: redis_L6_additional_tests.txt
+      ycsb_workloads: [d, e, f]
+      memtier_scenarios: [base, large_value, pipeline_16]
+
+feedback:
+  file: last_brief.txt
+  format: text

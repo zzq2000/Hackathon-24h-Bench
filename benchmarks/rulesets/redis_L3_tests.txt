@@ -1,0 +1,9 @@
+# Redis L3: Persistence + Pub/Sub
+# Tests RDB/AOF persistence and Pub/Sub messaging.
+#
+bgsave_basic
+save_basic
+subscribe_publish_basic
+psubscribe_basic
+unsubscribe_basic
+pubsub_channels

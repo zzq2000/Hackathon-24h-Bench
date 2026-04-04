@@ -1,0 +1,64 @@
+system:
+  type: http_server
+  description: "HTTP/1.1 web server"
+  target_dir: ./workspace/http_server
+  default_port: 8080
+
+http_server:
+  h1_port: 8080
+
+docker:
+  network_mode: "host"
+  add_host_gateway: true
+
+benchmarks:
+  - name: http_bench
+    enabled: true
+
+http_bench:
+  network_mode: "host"
+  cispa_repo: "https://github.com/cispa/http-conformance.git"
+  cispa_timeout_sec: 120
+  cispa_postgres_image: "postgres:15-alpine"
+  cispa_postgres_startup_sec: 30
+  tfb_repo: "https://github.com/TechEmpower/FrameworkBenchmarks.git"
+  tfb_timeout_sec: 300
+  h1spec_repo: "https://github.com/uNetworking/h1spec"
+  h1spec_deno_image: "denoland/deno:alpine-2.1.4"
+  h1spec_script_url: "https://raw.githubusercontent.com/uNetworking/h1spec/master/http_test.ts"
+  h1spec_timeout_sec: 120
+
+tiers:
+  L0:
+    description: "L0: h1spec quick conformance check (~33 tests)"
+    timeout_multiplier: 1.0
+    http_bench:
+      suites: [h1spec]
+  L1:
+    description: "L1: curated CISPA HTTP/1.1 semantics subset"
+    timeout_multiplier: 1.0
+    http_bench:
+      suites: [cispa]
+      cispa_mode: core_subset
+  L2:
+    description: "L2: TFB Plaintext + JSON"
+    timeout_multiplier: 1.0
+    http_bench:
+      suites: [tfb]
+      tfb_tests: [plaintext, json]
+  L3:
+    description: "L3: TFB DB Read (Single Query + Multiple Queries)"
+    timeout_multiplier: 1.5
+    http_bench:
+      suites: [tfb]
+      tfb_tests: [db, query]
+  L4:
+    description: "L4: TFB Full Application (Fortunes + Updates)"
+    timeout_multiplier: 1.5
+    http_bench:
+      suites: [tfb]
+      tfb_tests: [fortune, update]
+
+feedback:
+  file: last_brief.txt
+  format: text

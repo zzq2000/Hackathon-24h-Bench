@@ -1,0 +1,91 @@
+# Code Agent 系统改进系统配置文件
+
+# 代码代理控制器配置
+code_agent_controller:
+  # 默认代理类型: codex, claude, gemini, kimi
+  # 可以通过环境变量 CODE_AGENT 覆盖
+  agent: "codex"
+  # 默认模型名称（可选，如 gpt-5.2 / claude-4.5-opus）
+  # 可以通过环境变量 CODE_AGENT_MODEL 覆盖
+  model: ""
+
+  # 改进间隔（秒），默认1小时
+  improvement_interval: 3600
+
+  # SUT 工作目录（System Under Test working directory）
+  # 不同代理/系统可使用不同目录，如 workspace/database, workspace/message_queue 等
+  # 留空时根据 system-type 自动解析
+  sut_dir: ""
+
+  # 代理命令超时（秒）
+  # 已生效：可通过 CODE_AGENT_COMMAND_TIMEOUT 覆盖
+  command_timeout: 10800
+
+  # 最大重试次数
+  # 已生效：可通过 CODE_AGENT_MAX_RETRIES 覆盖
+  max_retries: 3
+
+  # 每次改进之间的等待时间（秒）
+  # 已生效：优先级 CLI --wait-time > CODE_AGENT_WAIT_TIME > wait_time > improvement_interval
+  wait_time: 30
+
+# Codex 特定配置
+codex:
+  # 是否使用 Docker 环境运行 codex
+  # 设置为 true 时，codex 将在 Docker 容器中运行，获得完整权限
+  # 可以通过环境变量 CODEX_USE_DOCKER=true 来启用
+  use_docker: false
+
+  # Docker 镜像名称
+  docker_image: "codex-env"
+
+  # Docker 容器名称
+  docker_container_name: "codex-executor"
+
+  # 是否绕过沙箱限制
+  # 可以通过环境变量 CODEX_BYPASS_SANDBOX=true 来启用
+  bypass_sandbox: false
+
+# Claude Code 特定配置
+claude:
+  # 是否跳过权限确认
+  # 可以通过环境变量 CLAUDE_DANGEROUSLY_SKIP_PERMISSIONS=true 来启用
+  dangerously_skip_permissions: false
+
+# Gemini CLI 特定配置
+gemini:
+  # 沙箱模式: none, basic, strict
+  sandbox_mode: "none"
+
+# 测试运行器配置
+test_runner:
+  # 测试提交间隔（秒，按 test_start->test_start 对齐），默认15分钟
+  test_interval: 900
+
+  # tier 执行/汇报模式：
+  #   full   - 跑完全部 tier，并汇报每个 tier 的问题
+  #   ladder - 失败后停止，只汇报当前失败 tier 的问题
+  # 可通过 CLI --tier-mode 或环境变量 TIER_MODE 覆盖
+  tier_mode: "full"
+  
+  # 测试实例基础目录
+  test_base_dir: "./test_instances"
+  
+  # 数据库连接配置
+  database:
+    host: "127.0.0.1"
+    port: 3306
+    user: "root"
+    password: "root"
+  
+  # 数据库启动等待时间（秒）
+  database_wait_timeout: 30
+  
+  # 基准测试超时（秒）
+  # 目标：完整 L0->L3 一次性测试在 ~1 小时内完成（可用 CLI --benchmark-timeout 覆盖）
+  benchmark_timeout: 900
+
+# 基准测试配置（由 test_runner/benchmarks 读取）
+benchmark:
+  # 仅保留全局输出目录；各 system-type 的基准参数统一在 config/system.<type>.yaml 中维护。
+  output_dir: "./output"

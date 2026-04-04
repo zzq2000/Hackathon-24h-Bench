@@ -1,0 +1,14 @@
+# Redis L6: additional-only TCL cases beyond L0-L4
+# These cases stay disjoint from lower-tier rulesets so each tier contributes
+# unique workloads in the default benchmark configuration.
+scan_basic
+scan_match
+scan_count
+sscan_basic
+hscan_basic
+zscan_basic
+info_basic
+config_get_basic
+client_list_basic
+randomkey_basic
+object_encoding_basic
