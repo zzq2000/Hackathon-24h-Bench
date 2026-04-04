@@ -116,7 +116,7 @@ We evaluated three models (**Kimi-K2.5**, **Qwen3.5-Plus**, **MiniMax-M2.5**) ac
 Developing a database system is the hardest task. Qwen3.5-Plus peaked at 14.6%; Kimi-K2.5 reached 4.2% but regressed to 0%.
 
 <p align="center">
-  <img src="technical_report/fig_database.png" alt="Database score trends" width="70%">
+  <img src="images/fig_database.png" alt="Database score trends" width="70%">
 </p>
 
 ### Message Queue (30 tests)
@@ -124,7 +124,7 @@ Developing a database system is the hardest task. Qwen3.5-Plus peaked at 14.6%; 
 Kimi-K2.5 spent 14.5 hours at 0% before climbing to 26.7%. MiniMax-M2.5 completed 85 iterations and marked 28 plan tasks "DONE" while scoring 0% on all 47 test cycles.
 
 <p align="center">
-  <img src="technical_report/fig_message_queue.png" alt="Message Queue score trends" width="70%">
+  <img src="images/fig_message_queue.png" alt="Message Queue score trends" width="70%">
 </p>
 
 ### HTTP Server (47 tests)
@@ -132,7 +132,7 @@ Kimi-K2.5 spent 14.5 hours at 0% before climbing to 26.7%. MiniMax-M2.5 complete
 Kimi-K2.5 reached 87.2% and recovered from regressions. MiniMax-M2.5 peaked at 70.2% then regressed to 55.3% without noticing.
 
 <p align="center">
-  <img src="technical_report/fig_http_server.png" alt="HTTP Server score trends" width="70%">
+  <img src="images/fig_http_server.png" alt="HTTP Server score trends" width="70%">
 </p>
 
 ### Redis KV Store (132 tests)
@@ -140,7 +140,7 @@ Kimi-K2.5 reached 87.2% and recovered from regressions. MiniMax-M2.5 peaked at 7
 The easiest task. Qwen3.5-Plus reached 93.2% in only 29 iterations. All three models scored above 84%.
 
 <p align="center">
-  <img src="technical_report/fig_redis_kvstore.png" alt="Redis KV Store score trends" width="70%">
+  <img src="images/fig_redis_kvstore.png" alt="Redis KV Store score trends" width="70%">
 </p>
 
 ### Cross-Agent Comparison (HTTP Server, Kimi-K2.5)
@@ -154,7 +154,7 @@ To isolate the impact of the agent framework itself, we run the same underlying 
 | Cline | 40 | 72.3% (34/47) | 72.3% (34/47) |
 
 <p align="center">
-  <img src="technical_report/fig_cross_agent.png" alt="Cross-agent HTTP server comparison" width="70%">
+  <img src="images/fig_cross_agent.png" alt="Cross-agent HTTP server comparison" width="70%">
 </p>
 
 ## Call for Contributions
@@ -257,7 +257,7 @@ If you use Hackathon-24h in your research, please cite:
   author    = {Zhu, Ziqin and Chi, Zewen and Witbrock, Michael and Dong, Li and Wei, Furu
                and Liu, Qian},
   year      = {2026},
-  howpublished = {\url{}}
+  howpublished = {\url{https://zhuziqin-blogs.notion.site/hackathon-24h-bench}}
 }
 ```
 
