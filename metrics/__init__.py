@@ -1,4 +1,4 @@
-"""Metrics module for LongAgentBench.
+"""Metrics module for Hackathon-24h-Bench.
 
 Parses agent iteration logs, extracts key metrics, correlates with benchmark
 results, and produces JSON + CLI summary output.

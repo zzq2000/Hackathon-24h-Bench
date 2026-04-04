@@ -147,7 +147,7 @@ class RedisBenchConfig:
     redis_benchmark_image: str = "redis:7.2.4-alpine"
     redis_benchmark_tests: List[str] = field(default_factory=list)
     # YCSB
-    ycsb_runner_image: str = "longagentbench/ycsb-runner:0.17.0-temurin11"
+    ycsb_runner_image: str = "hackathon-24h-bench/ycsb-runner:0.17.0-temurin11"
     ycsb_runner_dockerfile: str = "./benchmarks/implementations/docker/ycsb_runner/Dockerfile"
     ycsb_runner_context: str = "./benchmarks/implementations/docker/ycsb_runner"
     ycsb_base_image: str = "eclipse-temurin:11-jre-jammy"
@@ -350,7 +350,7 @@ class RedisBenchRunner(BenchmarkRunner):
                 "tcl_repo": "https://github.com/redis/redis.git",
                 "tcl_repo_ref": "7.2.4",
                 "redis_benchmark_image": "redis:7.2.4-alpine",
-                "ycsb_runner_image": "longagentbench/ycsb-runner:0.17.0-temurin11",
+                "ycsb_runner_image": "hackathon-24h-bench/ycsb-runner:0.17.0-temurin11",
                 "ycsb_runner_dockerfile": "./benchmarks/implementations/docker/ycsb_runner/Dockerfile",
                 "ycsb_runner_context": "./benchmarks/implementations/docker/ycsb_runner",
                 "ycsb_base_image": "eclipse-temurin:11-jre-jammy",
@@ -412,7 +412,7 @@ class RedisBenchRunner(BenchmarkRunner):
             ruleset_dir=str(_get("ruleset_dir", DEFAULT_RULESET_DIR)),
             redis_benchmark_image=str(_get("redis_benchmark_image", "redis:7.2.4-alpine")),
             redis_benchmark_tests=rb_tests,
-            ycsb_runner_image=str(_get("ycsb_runner_image", "longagentbench/ycsb-runner:0.17.0-temurin11")),
+            ycsb_runner_image=str(_get("ycsb_runner_image", "hackathon-24h-bench/ycsb-runner:0.17.0-temurin11")),
             ycsb_runner_dockerfile=str(_get(
                 "ycsb_runner_dockerfile",
                 "./benchmarks/implementations/docker/ycsb_runner/Dockerfile",

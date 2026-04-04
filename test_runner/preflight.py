@@ -64,7 +64,7 @@ class DockerBuildSpec:
 class DependencyPreflight:
     """Performs dependency checks + auto-setup for selected benchmarks."""
 
-    _DOCKER_BUILD_FINGERPRINT_LABEL = "longagentbench.build-fingerprint"
+    _DOCKER_BUILD_FINGERPRINT_LABEL = "hackathon-24h-bench.build-fingerprint"
 
     _IMPORT_OVERRIDES: Dict[str, str] = {
         "python-dotenv": "dotenv",
@@ -225,7 +225,7 @@ class DependencyPreflight:
                 build_spec = DockerBuildSpec(
                     image=str(
                         bench_cfg.get("ycsb_runner_image")
-                        or "longagentbench/ycsb-runner:0.17.0-temurin11"
+                        or "hackathon-24h-bench/ycsb-runner:0.17.0-temurin11"
                     ),
                     context=str(
                         bench_cfg.get("ycsb_runner_context")

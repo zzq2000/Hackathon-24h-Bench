@@ -138,7 +138,7 @@ providers:
     model_prefix: ""
     extra_headers:
       HTTP-Referer: "${OPENROUTER_REFERER:-}"
-      X-Title: "${OPENROUTER_TITLE:-LongAgentBench}"
+      X-Title: "${OPENROUTER_TITLE:-Hackathon-24h-Bench}"
 
   litellm:
     type: proxy

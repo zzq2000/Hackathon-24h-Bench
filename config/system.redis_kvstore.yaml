@@ -23,7 +23,7 @@ redis_bench:
   tcl_repo_ref: "7.2.4"
   tcl_patch_dir: ./benchmarks/implementations/redis_tcl_patches
   redis_benchmark_image: "redis:7.2.4-alpine"
-  ycsb_runner_image: "longagentbench/ycsb-runner:0.17.0-temurin11"
+  ycsb_runner_image: "hackathon-24h-bench/ycsb-runner:0.17.0-temurin11"
   ycsb_runner_dockerfile: "./benchmarks/implementations/docker/ycsb_runner/Dockerfile"
   ycsb_runner_context: "./benchmarks/implementations/docker/ycsb_runner"
   ycsb_base_image: "eclipse-temurin:11-jre-jammy"

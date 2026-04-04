@@ -44,8 +44,8 @@ DEFAULT_WAIT_TIME_SECONDS = 60
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 300
 RATE_LIMIT_WAIT_TIME_SECONDS = 300
-SNAPSHOT_REF = "refs/longagentbench/snapshots/latest"
-BASELINE_SNAPSHOT_REF_PREFIX = "refs/longagentbench/baselines"
+SNAPSHOT_REF = "refs/hackathon-24h-bench/snapshots/latest"
+BASELINE_SNAPSHOT_REF_PREFIX = "refs/hackathon-24h-bench/baselines"
 
 # 默认 SUT 工作目录（base workspace; actual run dir is ./workspace/{system_type}/{run_id}）
 DEFAULT_SUT_DIR = WORK_DIR / "workspace" / "database"
@@ -172,7 +172,7 @@ def _git_repo_lock(path: Path, timeout_sec: float = 60.0):
     """
     Cross-process lock for git operations touching the same repository.
     """
-    lock_path = path / ".longagentbench.git.lock"
+    lock_path = path / ".hackathon-24h-bench.git.lock"
     fd = os.open(str(lock_path), os.O_CREAT | os.O_RDWR, 0o644)
     start = time.time()
     acquired = False
@@ -211,10 +211,10 @@ def _create_snapshot_commit(
     """
     author_env = {
         **os.environ,
-        "GIT_AUTHOR_NAME": os.environ.get("GIT_AUTHOR_NAME", "LongAgentBench"),
-        "GIT_AUTHOR_EMAIL": os.environ.get("GIT_AUTHOR_EMAIL", "longagentbench@localhost"),
-        "GIT_COMMITTER_NAME": os.environ.get("GIT_COMMITTER_NAME", "LongAgentBench"),
-        "GIT_COMMITTER_EMAIL": os.environ.get("GIT_COMMITTER_EMAIL", "longagentbench@localhost"),
+        "GIT_AUTHOR_NAME": os.environ.get("GIT_AUTHOR_NAME", "Hackathon-24h-Bench"),
+        "GIT_AUTHOR_EMAIL": os.environ.get("GIT_AUTHOR_EMAIL", "hackathon-24h-bench@localhost"),
+        "GIT_COMMITTER_NAME": os.environ.get("GIT_COMMITTER_NAME", "Hackathon-24h-Bench"),
+        "GIT_COMMITTER_EMAIL": os.environ.get("GIT_COMMITTER_EMAIL", "hackathon-24h-bench@localhost"),
     }
     msg = f"{message_prefix}: {run_id} iter {iteration:03d}"
     temp_index_path: Optional[str] = None
@@ -265,7 +265,7 @@ def _create_snapshot_commit(
                     "-A",
                     "--",
                     ".",
-                    ":(exclude).longagentbench.git.lock",
+                    ":(exclude).hackathon-24h-bench.git.lock",
                     ":(exclude).lab_snapshot_index_*",
                     ":(exclude).lab_snapshot_index_*.lock",
                     ":(exclude)lab_snapshot_index_*",

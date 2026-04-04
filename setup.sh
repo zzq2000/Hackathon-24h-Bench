@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# LongAgentBench one-click setup for environments with Python and Docker.
+# Hackathon-24h-Bench one-click setup for environments with Python and Docker.
 #
 # What this script does:
 # 1. Creates/reuses a Python environment (conda preferred, venv as fallback)
@@ -21,13 +21,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-ENV_NAME="longagentbench"
+ENV_NAME="hackathon-24h-bench"
 PYTHON_VERSION="3.10"
 SKIP_DOCKER_PULL=false
 INSTALL_AGENT_CLI=false
 FORCE_VENV=false
 VENV_DIR=".venv"
-NPM_USER_PREFIX="${NPM_USER_PREFIX:-$HOME/.local/longagentbench/npm}"
+NPM_USER_PREFIX="${NPM_USER_PREFIX:-$HOME/.local/hackathon-24h-bench/npm}"
 NPM_USER_BIN="$NPM_USER_PREFIX/bin"
 
 show_help() {
@@ -35,7 +35,7 @@ show_help() {
 Usage: ./setup.sh [options]
 
 Options:
-  --env-name <name>         Conda env name (default: longagentbench)
+  --env-name <name>         Conda env name (default: hackathon-24h-bench)
   --python-version <ver>    Python version for conda env (default: 3.10)
   --venv                    Force using Python venv instead of conda
   --venv-dir <path>         venv directory (default: .venv)
@@ -92,7 +92,7 @@ if [ "$FORCE_VENV" = false ] && command -v conda >/dev/null 2>&1; then
 fi
 
 echo "=========================================="
-echo "LongAgentBench environment setup"
+echo "Hackathon-24h-Bench environment setup"
 echo "=========================================="
 if [ "$USE_CONDA" = true ]; then
     echo "Python env:       conda ($ENV_NAME)"
@@ -239,7 +239,7 @@ persist_user_bin_path() {
     else
         {
             echo ""
-            echo "# Added by LongAgentBench setup.sh"
+            echo "# Added by Hackathon-24h-Bench setup.sh"
             echo "$export_line"
         } >> "$rc_file"
         echo "Added PATH entry to $rc_file"
@@ -251,7 +251,7 @@ persist_user_bin_path() {
     else
         {
             echo ""
-            echo "# Added by LongAgentBench setup.sh"
+            echo "# Added by Hackathon-24h-Bench setup.sh"
             echo "$export_line"
         } >> "$rc_file"
         echo "Added PATH entry to $rc_file"

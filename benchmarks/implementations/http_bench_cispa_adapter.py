@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Tuple
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run LongAgentBench CISPA adapter")
+    parser = argparse.ArgumentParser(description="Run Hackathon-24h-Bench CISPA adapter")
     parser.add_argument("--repo-dir", required=True)
     parser.add_argument("--host", required=True)
     parser.add_argument("--port", required=True, type=int)

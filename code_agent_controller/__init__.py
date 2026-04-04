@@ -40,7 +40,7 @@ Code Agent Controller - 可扩展的代码代理控制器
 """
 
 __version__ = "1.0.0"
-__author__ = "LongAgentBench Team"
+__author__ = "Hackathon-24h-Bench Team"
 
 # 核心类
 from .base import CodeAgentBase

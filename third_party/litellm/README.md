@@ -29,7 +29,7 @@ export OPENAI_API_BASE=http://localhost:4000
 export OPENAI_API_KEY=sk-litellm-proxy   # or your custom LITELLM_MASTER_KEY
 ```
 
-For the LongAgentBench project specifically, add these to your root `.env`:
+For the Hackathon-24h-Bench project specifically, add these to your root `.env`:
 
 ```bash
 OPENAI_API_KEY=sk-litellm-proxy

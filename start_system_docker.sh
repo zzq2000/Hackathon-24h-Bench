@@ -66,8 +66,8 @@ if [ -z "${VIRTUAL_ENV:-}" ]; then
     if [ -f "$SCRIPT_DIR/.venv/bin/activate" ]; then
         # shellcheck disable=SC1091
         source "$SCRIPT_DIR/.venv/bin/activate"
-    elif command -v conda >/dev/null 2>&1 && conda info --envs 2>/dev/null | grep -q longagentbench; then
-        eval "$(conda shell.bash hook 2>/dev/null)" && conda activate longagentbench
+    elif command -v conda >/dev/null 2>&1 && conda info --envs 2>/dev/null | grep -q hackathon-24h-bench; then
+        eval "$(conda shell.bash hook 2>/dev/null)" && conda activate hackathon-24h-bench
     fi
 fi
 
