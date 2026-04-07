@@ -63,12 +63,19 @@ _DROPPED_WRAPPER_PREFIXES = {"mq_bench", "http_bench", "redis_bench"}
 # fine-grained workload/rule identifiers under them should be replaced with
 # stable opaque labels to avoid leaking benchmark internals.
 _OPAQUE_SUFFIX_FAMILIES = {
+    # Database benchmarks
+    "oltp": "case",
+    "transaction": "case",
+    "analytical": "case",
+    # Message Queue suites
     "acceptance": "case",
     "throughput": "case",
     "performance": "case",
+    # HTTP Server suites
     "compliance": "rule",
     "workload": "case",
     "spec": "case",
+    # Redis KV Store suites
     "conformance": "case",
     "perf": "case",
     "appload": "case",
