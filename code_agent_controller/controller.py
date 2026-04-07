@@ -43,6 +43,9 @@ _ITER_FILE_RE = re.compile(r"^iter_(\d+)\.json$")
 DEFAULT_WAIT_TIME_SECONDS = 60
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 300
+DEFAULT_INIT_COMMAND_TIMEOUT_SECONDS = 10800   # 3 hours
+DEFAULT_IMPROVE_COMMAND_TIMEOUT_SECONDS = 3600  # 1 hour
+DEFAULT_COMPLETION_GRACE_SECONDS = 30
 RATE_LIMIT_WAIT_TIME_SECONDS = 300
 SNAPSHOT_REF = "refs/hackathon-24h-bench/snapshots/latest"
 BASELINE_SNAPSHOT_REF_PREFIX = "refs/hackathon-24h-bench/baselines"
@@ -815,6 +818,10 @@ def run_controller(
     wait_time: int = DEFAULT_WAIT_TIME_SECONDS,
     max_retries: int = DEFAULT_MAX_RETRIES,
     command_timeout: int = DEFAULT_COMMAND_TIMEOUT_SECONDS,
+    init_command_timeout: int = DEFAULT_INIT_COMMAND_TIMEOUT_SECONDS,
+    improve_command_timeout: int = DEFAULT_IMPROVE_COMMAND_TIMEOUT_SECONDS,
+    api_timeout_ms: int = 0,
+    completion_grace_seconds: int = DEFAULT_COMPLETION_GRACE_SECONDS,
     max_iterations: int = 0,
     use_resume: bool = True,
     skip_init: bool = False,
@@ -830,7 +837,11 @@ def run_controller(
         model: 模型名称（可选）
         wait_time: 迭代间等待时间
         max_retries: 代理命令最大重试次数
-        command_timeout: 代理命令超时时间（秒）
+        command_timeout: 代理命令超时时间（秒）— 通用回退值
+        init_command_timeout: 初始化阶段命令超时（秒）
+        improve_command_timeout: 改进迭代命令超时（秒）
+        api_timeout_ms: 单次 API 请求超时（毫秒），0 表示不设置
+        completion_grace_seconds: 检测到完成信号后等待进程退出的宽限期（秒）
         max_iterations: 最大迭代次数 (0 表示无限)
         use_resume: 改进迭代时是否启用 resume
         skip_init: 是否跳过初始化
@@ -847,13 +858,23 @@ def run_controller(
     logger.info(f"模型名称: {model or '默认'}")
     logger.info(f"工作目录: {sut_dir}")
     logger.info(
-        "控制参数: wait_time=%ss, max_retries=%s, command_timeout=%ss",
+        "控制参数: wait_time=%ss, max_retries=%s, command_timeout=%ss"
+        " (init=%ss, improve=%ss), grace=%ss",
         wait_time,
         max_retries,
         command_timeout,
+        init_command_timeout,
+        improve_command_timeout,
+        completion_grace_seconds,
     )
+    if api_timeout_ms > 0:
+        logger.info("API_TIMEOUT_MS=%s", api_timeout_ms)
     logger.info(f"改进迭代使用 resume: {use_resume}")
     logger.info("=" * 60)
+
+    # Inject API_TIMEOUT_MS into process environment (all agents inherit it)
+    if api_timeout_ms > 0:
+        os.environ.setdefault("API_TIMEOUT_MS", str(api_timeout_ms))
 
     # 验证代理名称
     available = get_available_agents()
@@ -870,6 +891,9 @@ def run_controller(
             "use_resume": use_resume,
             "max_retries": max_retries,
             "command_timeout": command_timeout,
+            "init_command_timeout": init_command_timeout,
+            "improve_command_timeout": improve_command_timeout,
+            "completion_grace_seconds": completion_grace_seconds,
         }
         if provider:
             agent_config["provider"] = provider
@@ -1114,6 +1138,38 @@ def main() -> int:
         default=DEFAULT_COMMAND_TIMEOUT_SECONDS,
         min_value=1,
     )
+    resolved_init_timeout = _resolve_int_setting(
+        cli_value=None,
+        env_keys=("CODE_AGENT_INIT_TIMEOUT", "AGENT_INIT_TIMEOUT"),
+        config=controller_config,
+        config_keys=("init_command_timeout",),
+        default=resolved_command_timeout,
+        min_value=1,
+    )
+    resolved_improve_timeout = _resolve_int_setting(
+        cli_value=None,
+        env_keys=("CODE_AGENT_IMPROVE_TIMEOUT", "AGENT_IMPROVE_TIMEOUT"),
+        config=controller_config,
+        config_keys=("improve_command_timeout",),
+        default=resolved_command_timeout,
+        min_value=1,
+    )
+    resolved_api_timeout_ms = _resolve_int_setting(
+        cli_value=None,
+        env_keys=("API_TIMEOUT_MS",),
+        config=controller_config,
+        config_keys=("api_timeout_ms",),
+        default=0,
+        min_value=0,
+    )
+    resolved_grace_seconds = _resolve_int_setting(
+        cli_value=None,
+        env_keys=("COMPLETION_GRACE_SECONDS",),
+        config=controller_config,
+        config_keys=("completion_grace_seconds",),
+        default=DEFAULT_COMPLETION_GRACE_SECONDS,
+        min_value=1,
+    )
 
     # 解析系统工作目录（默认会根据 system-type 调整；也允许全局配置覆盖默认目录）
     explicit_sut_dir = bool((args.sut_dir or "").strip())
@@ -1181,10 +1237,15 @@ def main() -> int:
         setup_logging(level=log_level, log_file=args.log_file)
 
     logger.info(
-        "已解析控制参数: wait_time=%ss, max_retries=%s, command_timeout=%ss",
+        "已解析控制参数: wait_time=%ss, max_retries=%s, command_timeout=%ss"
+        " (init=%ss, improve=%ss), grace=%ss, api_timeout_ms=%s",
         resolved_wait_time,
         resolved_max_retries,
         resolved_command_timeout,
+        resolved_init_timeout,
+        resolved_improve_timeout,
+        resolved_grace_seconds,
+        resolved_api_timeout_ms,
     )
 
     # Docker mode
@@ -1192,6 +1253,11 @@ def main() -> int:
         os.environ["CODE_AGENT_WAIT_TIME"] = str(resolved_wait_time)
         os.environ["CODE_AGENT_MAX_RETRIES"] = str(resolved_max_retries)
         os.environ["CODE_AGENT_COMMAND_TIMEOUT"] = str(resolved_command_timeout)
+        os.environ["CODE_AGENT_INIT_TIMEOUT"] = str(resolved_init_timeout)
+        os.environ["CODE_AGENT_IMPROVE_TIMEOUT"] = str(resolved_improve_timeout)
+        os.environ["COMPLETION_GRACE_SECONDS"] = str(resolved_grace_seconds)
+        if resolved_api_timeout_ms > 0:
+            os.environ.setdefault("API_TIMEOUT_MS", str(resolved_api_timeout_ms))
         session_dir = Path(args.session_dir) if args.session_dir else None
         return run_docker_controller(
             agent_name=args.agent,
@@ -1220,6 +1286,10 @@ def main() -> int:
         wait_time=resolved_wait_time,
         max_retries=resolved_max_retries,
         command_timeout=resolved_command_timeout,
+        init_command_timeout=resolved_init_timeout,
+        improve_command_timeout=resolved_improve_timeout,
+        api_timeout_ms=resolved_api_timeout_ms,
+        completion_grace_seconds=resolved_grace_seconds,
         max_iterations=args.max_iterations,
         use_resume=args.use_resume,
         skip_init=args.skip_init,

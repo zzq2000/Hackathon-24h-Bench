@@ -27,6 +27,8 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None  # type: ignore[assignment]
 
+from .rotation import KeyRotator
+
 logger = logging.getLogger(__name__)
 
 _WORK_DIR = Path(__file__).resolve().parent.parent.parent
@@ -99,6 +101,38 @@ class ResolvedProvider:
     extra_env: Dict[str, str] = field(default_factory=dict)
     extra_headers: Dict[str, str] = field(default_factory=dict)
     env_mirrors: Dict[str, str] = field(default_factory=dict)
+    _rotator: Optional[KeyRotator] = field(default=None, repr=False, compare=False)
+
+    @property
+    def has_key_rotation(self) -> bool:
+        """Whether this provider has multiple keys for rotation."""
+        return self._rotator is not None and self._rotator.has_multiple_keys
+
+    def report_success(self) -> None:
+        """Report that the current API key worked successfully."""
+        if self._rotator:
+            self._rotator.report_success(self.api_key)
+
+    def report_failure(self, reason: str = "unknown") -> bool:
+        """Report API key failure and rotate to the next available key.
+
+        Returns True if the key was actually changed (rotation occurred).
+        """
+        if not self._rotator:
+            return False
+        self._rotator.report_failure(self.api_key, reason)
+        next_ks = self._rotator.get_next_key()
+        if next_ks and next_ks.key != self.api_key:
+            old_key_hint = f"{self.api_key[:8]}...{self.api_key[-4:]}" if len(self.api_key) > 12 else "****"
+            new_key_hint = f"{next_ks.key[:8]}...{next_ks.key[-4:]}" if len(next_ks.key) > 12 else "****"
+            logger.info(
+                "Key rotated for provider %s: %s -> %s (reason=%s)",
+                self.provider_name, old_key_hint, new_key_hint, reason,
+            )
+            self.api_key = next_ks.key
+            self.api_key_source = next_ks.source
+            return True
+        return False
 
     def build_env_dict(self) -> Dict[str, str]:
         """Build a complete env dict suitable for subprocess calls."""
@@ -241,6 +275,8 @@ class ProviderRegistry:
         # Lowercase alias -> canonical model name
         self._model_alias_map: Dict[str, str] = {}
         self._agent_providers: Dict[str, Dict[str, Any]] = {}
+        # KeyRotator instances keyed by "provider_name:env_var_name"
+        self._rotators: Dict[str, KeyRotator] = {}
 
         self._load(
             config_path or _DEFAULT_CONFIG_PATH,
@@ -474,7 +510,7 @@ class ProviderRegistry:
         if not pdef:
             return None
 
-        api_key, key_source = self._find_api_key(pdef)
+        api_key, key_source, rotator = self._find_api_key(pdef)
         if not api_key:
             return None
 
@@ -504,6 +540,7 @@ class ProviderRegistry:
             extra_env=extra_env,
             extra_headers=extra_headers,
             env_mirrors={},
+            _rotator=rotator,
         )
 
     def _try_resolve(
@@ -513,7 +550,7 @@ class ProviderRegistry:
         model: Optional[str] = None,
     ) -> Optional[ResolvedProvider]:
         """Try to resolve a native/gateway provider."""
-        api_key, key_source = self._find_api_key(pdef)
+        api_key, key_source, rotator = self._find_api_key(pdef)
 
         # For providers with auth_alternatives, check those too
         if not api_key and pdef.auth_alternatives:
@@ -556,15 +593,38 @@ class ProviderRegistry:
             extra_env=extra_env,
             extra_headers={},
             env_mirrors=env_mirrors,
+            _rotator=rotator,
         )
 
-    def _find_api_key(self, pdef: ProviderDef) -> Tuple[Optional[str], str]:
-        """Find the first available API key from the provider's env var list."""
+    def _find_api_key(self, pdef: ProviderDef) -> Tuple[Optional[str], str, Optional[KeyRotator]]:
+        """Find the first available API key from the provider's env var list.
+
+        When an env var contains semicolon-separated keys (e.g. ``sk-1;sk-2``),
+        a :class:`KeyRotator` is created (or reused) and the next available key
+        is returned.  Single-key usage is fully backward-compatible.
+
+        Returns:
+            (api_key, env_var_name, rotator_or_None)
+        """
         for key_name in pdef.api_key_env:
             value = (os.environ.get(key_name) or "").strip()
             if value:
-                return value, key_name
-        return None, ""
+                if ";" in value:
+                    rotator_id = f"{pdef.name}:{key_name}"
+                    if rotator_id not in self._rotators:
+                        self._rotators[rotator_id] = KeyRotator.from_env_value(
+                            pdef.name, value, key_name,
+                        )
+                        logger.info(
+                            "Created KeyRotator for provider %s (env=%s, keys=%d)",
+                            pdef.name, key_name, self._rotators[rotator_id].key_count,
+                        )
+                    rotator = self._rotators[rotator_id]
+                    ks = rotator.get_next_key()
+                    if ks:
+                        return ks.key, ks.source, rotator
+                return value, key_name, None
+        return None, "", None
 
     def _find_base_url(self, pdef: ProviderDef) -> Optional[str]:
         """Resolve the base URL for a provider.

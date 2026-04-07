@@ -134,6 +134,76 @@ class CodeAgentBase(ABC):
         )
 
     @staticmethod
+    def _is_transient_api_error(stdout: str, stderr: str) -> bool:
+        """Check whether agent failed due to a transient API/network error.
+
+        Transient errors (gateway timeouts, network errors, rate limits, 5xx)
+        should NOT discard the session — the work done so far is still valid
+        and the next attempt should ``--resume`` from where it left off.
+        """
+        text = f"{stdout}\n{stderr}".lower()
+        # Z.AI / Bailian gateway network errors
+        if "network error" in text and ("please contact customer service" in text or '"code":"1234"' in text):
+            return True
+        # Generic HTTP-level transient errors
+        if any(code in text for code in ("429", "500", "502", "503", "504")):
+            return True
+        if any(phrase in text for phrase in (
+            "rate limit",
+            "too many requests",
+            "overloaded",
+            "service unavailable",
+            "internal server error",
+            "gateway timeout",
+            "bad gateway",
+        )):
+            return True
+        # Claude API error patterns
+        if "api error" in text and any(f"api error: {c}" in text for c in ("429", "500", "502", "503", "504", "400")):
+            if "network error" in text:
+                return True
+        return False
+
+    @staticmethod
+    def _classify_api_error(stdout: str, stderr: str) -> Optional[str]:
+        """Classify API error reason for key rotation cooldown.
+
+        Returns one of ``"rate_limit"``, ``"auth"``, ``"billing"``, or ``None``
+        if the error is not an API key issue.
+        """
+        text = f"{stdout}\n{stderr}".lower()
+        if "429" in text or "rate limit" in text or "too many requests" in text:
+            return "rate_limit"
+        if any(s in text for s in (
+            "401", "403", "unauthorized", "invalid api key",
+            "invalid_api_key", "authentication_error", "permission denied",
+        )):
+            return "auth"
+        if any(s in text for s in (
+            "billing", "quota", "insufficient_quota", "payment required",
+        )):
+            return "billing"
+        return None
+
+    @staticmethod
+    def _is_prompt_too_long_error(stdout: str, stderr: str) -> bool:
+        """Check whether agent reports a prompt-too-long / context-overflow error.
+
+        When the conversation history grows beyond the model's context window,
+        compacting alone cannot shrink it enough. The stale session should be
+        discarded so that the next iteration starts fresh.
+        """
+        text = f"{stdout}\n{stderr}".lower()
+        return (
+            "prompt is too long" in text
+            or "prompt too long" in text
+            or "prompt_too_long" in text
+            or "context length exceeded" in text
+            or "context_length_exceeded" in text
+            or "maximum context length" in text
+        )
+
+    @staticmethod
     def _extract_session_id_json(
         output: str,
         keys: tuple = ("session_id", "sessionId", "session", "id"),
@@ -251,6 +321,28 @@ class CodeAgentBase(ABC):
         if self.command_timeout < 1:
             logger.warning("command_timeout=%s 非法，回退为 300", self.command_timeout)
             self.command_timeout = 300
+        # Phase-specific timeouts (fallback to command_timeout)
+        self.init_command_timeout = get_config_int(
+            self.config,
+            "init_command_timeout",
+            "CODE_AGENT_INIT_TIMEOUT",
+            "AGENT_INIT_TIMEOUT",
+            default=self.command_timeout,
+        )
+        self.improve_command_timeout = get_config_int(
+            self.config,
+            "improve_command_timeout",
+            "CODE_AGENT_IMPROVE_TIMEOUT",
+            "AGENT_IMPROVE_TIMEOUT",
+            default=self.command_timeout,
+        )
+        # Grace period after completion signal detection (seconds)
+        self.completion_grace_seconds = get_config_int(
+            self.config,
+            "completion_grace_seconds",
+            "COMPLETION_GRACE_SECONDS",
+            default=30,
+        )
         # Use session directory (container-aware)
         session_dir = get_session_dir()
         self.session_scope = self._resolve_session_scope()
@@ -304,6 +396,21 @@ class CodeAgentBase(ABC):
             CommandResult 对象，包含执行结果详情
         """
         pass
+
+    def _get_completion_pattern(self):
+        """Return a callable that detects logical completion in CLI stdout.
+
+        Override in subclass for agents with structured output (e.g. stream-json).
+        The callable receives a single stripped stdout line and returns ``True``
+        when a completion signal is detected.  After detection a grace period
+        starts; if the process doesn't exit within the grace period it is killed
+        and the result is treated as success.
+
+        Returns ``None`` (default) if the agent has no detectable completion
+        signal — in that case ``run_subprocess_streaming`` will not perform
+        grace-kill detection.
+        """
+        return None
 
     @staticmethod
     def _extract_brief_index(file_path: Path) -> Optional[int]:
@@ -539,8 +646,16 @@ Notes:
             True if initialization succeeded
         """
         prompt = self.get_init_prompt()
-        logger.info("Starting system initialization...")
-        result = self.run_command(prompt, max_retries=self.max_retries)
+        logger.info(
+            "Starting system initialization (timeout=%ss)...",
+            self.init_command_timeout,
+        )
+        saved_timeout = self.command_timeout
+        self.command_timeout = self.init_command_timeout
+        try:
+            result = self.run_command(prompt, max_retries=self.max_retries)
+        finally:
+            self.command_timeout = saved_timeout
         self.last_command_result = result
         if result.success:
             logger.info("System initialization completed")
@@ -571,12 +686,21 @@ Notes:
             True if improvement succeeded
         """
         prompt = self.get_improve_prompt(iteration)
-        logger.info(f"Starting improvement iteration #{iteration}...")
-        result = self.run_command(
-            prompt,
-            use_resume=self.iteration_use_resume,
-            max_retries=self.max_retries,
+        logger.info(
+            "Starting improvement iteration #%s (timeout=%ss)...",
+            iteration,
+            self.improve_command_timeout,
         )
+        saved_timeout = self.command_timeout
+        self.command_timeout = self.improve_command_timeout
+        try:
+            result = self.run_command(
+                prompt,
+                use_resume=self.iteration_use_resume,
+                max_retries=self.max_retries,
+            )
+        finally:
+            self.command_timeout = saved_timeout
         self.last_command_result = result
         if result.success:
             logger.info(f"Improvement iteration #{iteration} completed")

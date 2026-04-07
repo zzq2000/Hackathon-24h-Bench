@@ -62,6 +62,12 @@ class ClaudeCodeAgent(CodeAgentBase):
             self._registry = None
             self._resolved = None
 
+    def _get_completion_pattern(self):
+        """Detect ``{"type":"result"}`` in stream-json output."""
+        def _is_result_line(line: str) -> bool:
+            return '"type":"result"' in line or '"type": "result"' in line
+        return _is_result_line
+
     def check_cli(self) -> bool:
         """检查 claude CLI 是否已安装"""
         try:
@@ -214,6 +220,12 @@ class ClaudeCodeAgent(CodeAgentBase):
         "Do NOT re-read files you have already read."
     )
 
+    _TRANSIENT_ERROR_RESUME_PROMPT = (
+        "Your previous API call failed due to a transient network/server error. "
+        "The session is intact. Continue from where you left off and complete the current task. "
+        "Do NOT re-read files you have already read."
+    )
+
     def run_command(
         self,
         prompt: str,
@@ -281,19 +293,25 @@ class ClaudeCodeAgent(CodeAgentBase):
                     env=env,
                     logger=logger,
                     log_prefix=f"claude/attempt-{attempt + 1}",
+                    completion_pattern=self._get_completion_pattern(),
+                    completion_grace_seconds=self.completion_grace_seconds,
                 )
 
                 last_stdout = result.stdout or ""
                 last_stderr = result.stderr or ""
                 last_return_code = result.return_code
                 logger.info(
-                    "Claude Code 尝试结束 (attempt=%s/%s, return_code=%s, timed_out=%s, duration=%.2fs)",
+                    "Claude Code 尝试结束 (attempt=%s/%s, return_code=%s, timed_out=%s,"
+                    " grace_killed=%s, duration=%.2fs)",
                     attempt + 1,
                     max_retries,
                     last_return_code,
                     result.timed_out,
+                    result.grace_killed,
                     result.duration_seconds,
                 )
+                if result.grace_killed:
+                    logger.info("CLI process grace-killed after result output (treated as success)")
 
                 if result.timed_out:
                     logger.warning(f"Claude Code 命令超时 (尝试 {attempt + 1}/{max_retries})")
@@ -317,8 +335,8 @@ class ClaudeCodeAgent(CodeAgentBase):
 
                 if result.return_code == 0:
                     logger.info("Claude Code 命令执行成功")
-                    # if last_stdout:
-                    #     logger.info(f"输出: {last_stdout}")
+                    if self._resolved:
+                        self._resolved.report_success()
                     if should_save_session_id:
                         session_id = self._extract_session_id_from_output(f"{last_stdout}\n{last_stderr}")
                         if session_id:
@@ -343,6 +361,51 @@ class ClaudeCodeAgent(CodeAgentBase):
                     if last_stdout:
                         logger.warning("标准输出(stdout):\n%s", self._truncate_for_log(last_stdout))
 
+                    # --- Prompt too long (context overflow): must start fresh ---
+                    # Check this BEFORE transient errors, because transient
+                    # detection uses broad substring matching ("500" etc.) that
+                    # can false-positive on the large JSON stdout of a
+                    # prompt-too-long response.
+                    if self._is_prompt_too_long_error(last_stdout or "", last_stderr or ""):
+                        logger.warning("Prompt 超长（context overflow），清除 session 并降级执行")
+                        self.save_session_id(None)
+                        if attempt < max_retries - 1:
+                            cmd = self._build_base_command()
+                            current_prompt = prompt  # use original prompt, not resume prompt
+                            should_save_session_id = True
+                            time.sleep(5)
+                        continue
+
+                    # --- Transient API/network error: resume the same session ---
+                    if self._is_transient_api_error(last_stdout, last_stderr):
+                        # Rotate key before retry (e.g. on rate limit 429)
+                        if self._resolved:
+                            error_reason = self._classify_api_error(last_stdout, last_stderr)
+                            if error_reason and self._resolved.report_failure(error_reason):
+                                logger.info("临时性错误触发 key 轮换")
+                                env = self._build_env()
+                        if attempt < max_retries - 1:
+                            failed_session_id = self._extract_session_id_from_output(last_stdout)
+                            if failed_session_id:
+                                logger.info(
+                                    "检测到临时性 API/网络错误，保留 session %s，下次重试将使用 resume 模式",
+                                    failed_session_id,
+                                )
+                                self.save_session_id(failed_session_id)
+                                cmd = self._build_base_command()
+                                cmd.extend(["--resume", failed_session_id])
+                                current_prompt = self._TRANSIENT_ERROR_RESUME_PROMPT
+                                should_save_session_id = True
+                                backoff = min(30, 10 * (attempt + 1))
+                                logger.info("临时性错误退避等待 %s 秒后重试...", backoff)
+                                time.sleep(backoff)
+                                continue
+                            else:
+                                logger.warning(
+                                    "检测到临时性 API/网络错误，但无法提取 session ID，将降级执行"
+                                )
+
+                    # --- Non-transient failure on first resume attempt: degrade ---
                     if use_resume and attempt == 0:
                         if self._is_no_previous_session_error(last_stdout, last_stderr):
                             logger.warning("Resume 失败且会话不存在，清除 session 并降级执行")
@@ -351,6 +414,12 @@ class ClaudeCodeAgent(CodeAgentBase):
                             logger.warning("Resume 失败但非会话缺失，保留 session 并降级执行")
                         cmd = self._build_base_command()
                         should_save_session_id = True
+
+                    # Key rotation on API errors
+                    if self._resolved:
+                        error_reason = self._classify_api_error(last_stdout, last_stderr)
+                        if error_reason and self._resolved.report_failure(error_reason):
+                            env = self._build_env()
 
                     if attempt < max_retries - 1:
                         time.sleep(5)

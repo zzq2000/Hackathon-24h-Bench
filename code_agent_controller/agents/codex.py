@@ -547,8 +547,8 @@ class CodexAgent(CodeAgentBase):
 
                 if result.return_code == 0:
                     logger.info("Codex 命令执行成功")
-                    # if last_stdout:
-                    #     logger.info(f"输出:\n{last_stdout}")
+                    if self._provider:
+                        self._provider.report_success()
 
                     if should_save_session_id:
                         session_id = self._extract_session_id_from_output(last_stdout)
@@ -576,11 +576,20 @@ class CodexAgent(CodeAgentBase):
                         if self._is_no_previous_session_error(last_stdout, last_stderr):
                             logger.warning("当前项目无可恢复会话，自动降级为新会话执行")
                             self.save_session_id(None)
+                        elif self._is_prompt_too_long_error(last_stdout or "", last_stderr or ""):
+                            logger.warning("Prompt 超长（context overflow），清除 session 并降级执行")
+                            self.save_session_id(None)
                         else:
                             logger.warning("Resume 失败但非会话缺失，保留 session ID 并降级执行")
                         cmd = base_cmd.copy()
                         cmd.append(prompt)
                         should_save_session_id = True
+
+                    # Key rotation on API errors
+                    if self._provider:
+                        error_reason = self._classify_api_error(last_stdout, last_stderr)
+                        if error_reason and self._provider.report_failure(error_reason):
+                            env = self._build_env()
 
                     if attempt < max_retries - 1:
                         time.sleep(5)

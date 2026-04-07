@@ -695,6 +695,8 @@ class OpenCodeAgent(CodeAgentBase):
 
                 if result.return_code == 0 and not runtime_error:
                     logger.info("OpenCode CLI 命令执行成功")
+                    if self._provider:
+                        self._provider.report_success()
 
                     active_session_id = None
                     combined_output = f"{last_stdout}\n{last_stderr}"
@@ -735,6 +737,9 @@ class OpenCodeAgent(CodeAgentBase):
                         elif self._is_no_previous_session_error(last_stdout, last_stderr):
                             logger.warning("Resume 失败且会话不存在，清除 session 并降级执行")
                             self.save_session_id(None)
+                        elif self._is_prompt_too_long_error(last_stdout or "", last_stderr or ""):
+                            logger.warning("Prompt 超长（context overflow），清除 session 并降级执行")
+                            self.save_session_id(None)
                         else:
                             logger.warning("Resume 失败但非会话缺失，保留 session 并降级执行")
                         effective_use_resume = False
@@ -747,6 +752,12 @@ class OpenCodeAgent(CodeAgentBase):
                     elif runtime_error == "context_overflow":
                         logger.error("OpenCode 新会话仍触发上下文溢出，停止重试以避免空转")
                         break
+
+                    # Key rotation on API errors (env rebuilt per attempt)
+                    if self._provider:
+                        error_reason = self._classify_api_error(last_stdout, last_stderr)
+                        if error_reason:
+                            self._provider.report_failure(error_reason)
 
                     if attempt < max_retries - 1:
                         time.sleep(5)

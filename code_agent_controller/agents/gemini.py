@@ -107,6 +107,12 @@ class GeminiCliAgent(CodeAgentBase):
 
         return cmd
 
+    def _get_completion_pattern(self):
+        """Detect ``{"type":"result"}`` in stream-json output."""
+        def _is_result_line(line: str) -> bool:
+            return '"type":"result"' in line or '"type": "result"' in line
+        return _is_result_line
+
     def _extract_session_id_from_output(self, output: str) -> Optional[str]:
         """从 gemini CLI 输出中提取 session ID
 
@@ -234,6 +240,8 @@ class GeminiCliAgent(CodeAgentBase):
                     env=self._build_env(),
                     logger=logger,
                     log_prefix=f"gemini/attempt-{attempt + 1}",
+                    completion_pattern=self._get_completion_pattern(),
+                    completion_grace_seconds=self.completion_grace_seconds,
                 )
 
                 last_stdout = result.stdout or ""
@@ -258,8 +266,8 @@ class GeminiCliAgent(CodeAgentBase):
 
                 if result.return_code == 0:
                     logger.info("Gemini CLI 命令执行成功")
-                    # if last_stdout:
-                    #     logger.info(f"输出: {last_stdout}")
+                    if self._provider:
+                        self._provider.report_success()
 
                     # 提取并保存 session ID 以便后续 resume
                     if should_save_session_id:
@@ -296,11 +304,20 @@ class GeminiCliAgent(CodeAgentBase):
                         if self._is_no_previous_session_error(last_stdout, last_stderr):
                             logger.warning("Resume 失败且会话不存在，清除 session 并降级执行")
                             self.save_session_id(None)
+                        elif self._is_prompt_too_long_error(last_stdout or "", last_stderr or ""):
+                            logger.warning("Prompt 超长（context overflow），清除 session 并降级执行")
+                            self.save_session_id(None)
                         else:
                             logger.warning("Resume 失败但非会话缺失，保留 session 并降级执行")
                         should_save_session_id = True
                         cmd = list(base_cmd)
                         cmd.extend(["--prompt", prompt])
+
+                    # Key rotation on API errors (env rebuilt per attempt)
+                    if self._provider:
+                        error_reason = self._classify_api_error(last_stdout, last_stderr)
+                        if error_reason:
+                            self._provider.report_failure(error_reason)
 
                     if attempt < max_retries - 1:
                         time.sleep(5)

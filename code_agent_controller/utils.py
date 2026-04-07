@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List, Sequence
+from typing import Optional, Dict, Any, List, Sequence, Callable
 
 
 # 工作目录
@@ -249,12 +249,16 @@ class StreamingProcessResult:
         stderr: 完整错误输出
         duration_seconds: 执行时长（秒）
         timed_out: 是否超时
+        result_detected: 是否检测到完成信号（如 ``{"type":"result"}``）
+        grace_killed: 检测到完成信号后进程未退出，被 grace-kill 终止
     """
     return_code: int
     stdout: str
     stderr: str
     duration_seconds: float
     timed_out: bool = False
+    result_detected: bool = False
+    grace_killed: bool = False
 
 
 def run_subprocess_streaming(
@@ -266,9 +270,17 @@ def run_subprocess_streaming(
     timeout: Optional[float] = None,
     logger: Optional[logging.Logger] = None,
     log_prefix: str = "agent-cli",
+    completion_pattern: Optional[Callable[[str], bool]] = None,
+    completion_grace_seconds: float = 30.0,
 ) -> StreamingProcessResult:
     """
     以流式方式执行子进程，实时转发 stdout/stderr 到日志。
+
+    Args:
+        completion_pattern: 可选的回调函数，接收 stdout 行（去除尾部换行）并返回
+            ``True`` 表示检测到逻辑完成信号。检测到后启动 grace period，
+            若进程在 *completion_grace_seconds* 内未退出则被 kill。
+        completion_grace_seconds: 检测到完成信号后等待进程退出的宽限期（秒）。
     """
     start = time.time()
     stdout_chunks: List[str] = []
@@ -311,6 +323,8 @@ def run_subprocess_streaming(
 
     finished_streams = 0
     timed_out = False
+    result_detected_at: Optional[float] = None
+    grace_killed = False
 
     while finished_streams < 2:
         remaining = None
@@ -321,6 +335,25 @@ def run_subprocess_streaming(
                 timed_out = True
                 proc.kill()
                 break
+
+        # Grace period: result detected but process still alive
+        if result_detected_at is not None:
+            grace_remaining = (result_detected_at + completion_grace_seconds) - time.time()
+            if grace_remaining <= 0:
+                if logger:
+                    logger.warning(
+                        "[%s] Process did not exit within %ss after completion signal, killing",
+                        log_prefix,
+                        completion_grace_seconds,
+                    )
+                grace_killed = True
+                proc.kill()
+                break
+            # Tighten poll interval during grace period
+            if remaining is None:
+                remaining = grace_remaining
+            else:
+                remaining = min(remaining, grace_remaining)
 
         try:
             wait_for = 0.2 if remaining is None else max(0.01, min(0.2, remaining))
@@ -337,12 +370,25 @@ def run_subprocess_streaming(
             stdout_chunks.append(payload)
             if logger and line:
                 logger.info("[%s][stdout] %s", log_prefix, line)
+            # Detect completion signal
+            if completion_pattern and result_detected_at is None:
+                try:
+                    if completion_pattern(line):
+                        result_detected_at = time.time()
+                        if logger:
+                            logger.info(
+                                "[%s] Completion signal detected, grace period %ss",
+                                log_prefix,
+                                completion_grace_seconds,
+                            )
+                except Exception:
+                    pass
         else:
             stderr_chunks.append(payload)
             if logger and line:
                 logger.error("[%s][stderr] %s", log_prefix, line)
 
-    if timed_out:
+    if timed_out or grace_killed:
         try:
             proc.wait(timeout=5)
         except Exception:
@@ -359,6 +405,12 @@ def run_subprocess_streaming(
     stderr_thread.join(timeout=1)
 
     return_code = proc.returncode if proc.returncode is not None else -1
+    result_detected = result_detected_at is not None
+
+    # Grace kill: agent's work was done (result output), normalize to success
+    if grace_killed:
+        return_code = 0
+        timed_out = False
 
     return StreamingProcessResult(
         return_code=return_code,
@@ -366,6 +418,8 @@ def run_subprocess_streaming(
         stderr="".join(stderr_chunks),
         duration_seconds=time.time() - start,
         timed_out=timed_out,
+        result_detected=result_detected,
+        grace_killed=grace_killed,
     )
 
 

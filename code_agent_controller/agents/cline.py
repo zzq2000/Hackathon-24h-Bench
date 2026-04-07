@@ -336,6 +336,8 @@ class ClineAgent(CodeAgentBase):
 
                 if result.return_code == 0:
                     logger.info("Cline CLI 命令执行成功")
+                    if self._resolved:
+                        self._resolved.report_success()
                     return CommandResult(
                         success=True,
                         stdout=last_stdout,
@@ -355,6 +357,12 @@ class ClineAgent(CodeAgentBase):
                         logger.warning("错误输出(stderr):\n%s", self._truncate_for_log(last_stderr))
                     if last_stdout:
                         logger.warning("标准输出(stdout):\n%s", self._truncate_for_log(last_stdout))
+
+                    # Key rotation on API errors
+                    if self._resolved:
+                        error_reason = self._classify_api_error(last_stdout, last_stderr)
+                        if error_reason and self._resolved.report_failure(error_reason):
+                            env = self._build_env()
 
                     if attempt < max_retries - 1:
                         time.sleep(5)

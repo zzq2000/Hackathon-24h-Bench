@@ -164,6 +164,8 @@ class GrokCliAgent(CodeAgentBase):
 
                 if result.return_code == 0:
                     logger.info("Grok CLI 命令执行成功")
+                    if self._provider:
+                        self._provider.report_success()
                     return CommandResult(
                         success=True,
                         stdout=last_stdout,
@@ -183,6 +185,12 @@ class GrokCliAgent(CodeAgentBase):
                         logger.warning("错误输出(stderr):\n%s", self._truncate_for_log(last_stderr))
                     if last_stdout:
                         logger.warning("标准输出(stdout):\n%s", self._truncate_for_log(last_stdout))
+
+                    # Key rotation on API errors (env rebuilt per attempt)
+                    if self._provider:
+                        error_reason = self._classify_api_error(last_stdout, last_stderr)
+                        if error_reason:
+                            self._provider.report_failure(error_reason)
 
                     if attempt < max_retries - 1:
                         time.sleep(5)

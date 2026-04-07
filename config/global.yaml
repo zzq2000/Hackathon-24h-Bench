@@ -17,9 +17,25 @@ code_agent_controller:
   # 留空时根据 system-type 自动解析
   sut_dir: ""
 
-  # 代理命令超时（秒）
+  # 代理命令超时（秒）— 通用回退值
   # 已生效：可通过 CODE_AGENT_COMMAND_TIMEOUT 覆盖
-  command_timeout: 10800
+  command_timeout: 3600
+
+  # 初始化阶段命令超时（秒），默认 3 小时
+  # 可通过 CODE_AGENT_INIT_TIMEOUT 覆盖；未设置时回退到 command_timeout
+  init_command_timeout: 10800
+
+  # 改进迭代命令超时（秒），默认 1 小时
+  # 可通过 CODE_AGENT_IMPROVE_TIMEOUT 覆盖；未设置时回退到 command_timeout
+  improve_command_timeout: 3600
+
+  # 单次 API 请求超时（毫秒），默认 50 分钟
+  # 注入为 API_TIMEOUT_MS 环境变量，由 CLI 工具读取；0 表示不设置
+  api_timeout_ms: 3000000
+
+  # 检测到完成信号后等待进程退出的宽限期（秒）
+  # 超过宽限期进程仍未退出则 kill 并视为成功
+  completion_grace_seconds: 30
 
   # 最大重试次数
   # 已生效：可通过 CODE_AGENT_MAX_RETRIES 覆盖
