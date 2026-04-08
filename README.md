@@ -85,12 +85,12 @@ Hackathon-24h currently comprises four tasks. We chose these systems deliberatel
 
 Each task is organised into a tier ladder of increasing difficulty, scored against established industrial benchmarks. We wrote none of the test cases ourselves.
 
-| Task | Tiers | Test Cases | Evaluation Suites |
-|------|-------|------------|-------------------|
-| Database | L0--L3 | 48 | [Sysbench](https://github.com/akopytov/sysbench), [TPC-C](https://www.tpc.org/tpcc/), [TPC-H](https://www.tpc.org/tpch/) |
-| Message Queue | L0--L2 | 30 | [pika](https://github.com/pika/pika), [OMQ](https://github.com/rabbitmq/omq), [RabbitMQ PerfTest](https://github.com/rabbitmq/rabbitmq-perf-test) |
-| HTTP Server | L0--L4 | 47 | [h1spec](https://github.com/uNetworking/h1spec), [CISPA](https://github.com/cispa/http-conformance), [TFB](https://github.com/TechEmpower/FrameworkBenchmarks) |
-| Redis KV Store | L0--L6 | 132 | Redis TCL, [YCSB](https://github.com/brianfrankcooper/YCSB), [memtier](https://github.com/RedisLabs/memtier_benchmark) |
+| Task | Tiers | Test Cases | Evaluation Suites | Parameter |
+|------|-------|------------|-------------------|-----------|
+| Database | L0--L3 | 48 | [Sysbench](https://github.com/akopytov/sysbench), [TPC-C](https://www.tpc.org/tpcc/), [TPC-H](https://www.tpc.org/tpch/) | `--system-type database` |
+| Message Queue | L0--L2 | 30 | [pika](https://github.com/pika/pika), [OMQ](https://github.com/rabbitmq/omq), [RabbitMQ PerfTest](https://github.com/rabbitmq/rabbitmq-perf-test) | `--system-type message_queue` |
+| HTTP Server | L0--L4 | 47 | [h1spec](https://github.com/uNetworking/h1spec), [CISPA](https://github.com/cispa/http-conformance), [TFB](https://github.com/TechEmpower/FrameworkBenchmarks) | `--system-type http_server` |
+| Redis KV Store | L0--L6 | 132 | Redis TCL, [YCSB](https://github.com/brianfrankcooper/YCSB), [memtier](https://github.com/RedisLabs/memtier_benchmark) | `--system-type redis_kvstore` |
 
 ### Decoupled Dual-Loop Architecture
 
