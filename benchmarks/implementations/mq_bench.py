@@ -117,6 +117,7 @@ OMQ_TOTAL_CONSUMED_RE = re.compile(
 OMQ_MIN_ACTIVE_SAMPLE_COUNT = 5
 OMQ_MAX_ZERO_CONSUME_RATIO = 0.5
 OMQ_MIN_CONSUME_TO_PUBLISH_RATIO = 0.1
+OMQ_MAX_CONSUME_TO_PUBLISH_RATIO = 1.5
 OMQ_CONTAINER_NAME_PREFIX = "lab-mq-bench-omq"
 
 PERFTEST_PARSE_FAILURE_MARKERS: Tuple[str, ...] = (
@@ -136,6 +137,7 @@ PERFTEST_RECEIVING_RATE_AVG_RE = re.compile(
 PERFTEST_MIN_ACTIVE_SAMPLE_COUNT = 5
 PERFTEST_MAX_ZERO_RECEIVE_RATIO = 0.5
 PERFTEST_MIN_RECEIVE_TO_SEND_RATIO = 0.05
+PERFTEST_MAX_RECEIVE_TO_SEND_RATIO = 1.5
 PROTOCOL_ERROR_PATTERNS: Tuple[re.Pattern[str], ...] = (
     re.compile(r"\bUnexpectedFrameError\b", re.IGNORECASE),
     re.compile(r"\bFRAME_ERROR\b", re.IGNORECASE),
@@ -1209,6 +1211,15 @@ class MessageQueueBenchRunner(BenchmarkRunner):
                         "perf-test receive throughput too low relative to send "
                         f"throughput ({receiving_rate_avg:g}/{sending_rate_avg:g} msg/s)"
                     )
+                # Fanout workloads legitimately multiply; non-fanout must not.
+                is_fanout = "fanout" in workload_id
+                upper = PERFTEST_MAX_RECEIVE_TO_SEND_RATIO
+                if not is_fanout and receive_ratio > upper:
+                    return (
+                        "perf-test duplicate message delivery detected "
+                        f"(receiving {receiving_rate_avg:g} > sending "
+                        f"{sending_rate_avg:g} msg/s, ratio {receive_ratio:.1f}x)"
+                    )
 
         if workload_id == "perftest:confirm":
             confirm_rates = [
@@ -1322,6 +1333,12 @@ class MessageQueueBenchRunner(BenchmarkRunner):
             return (
                 "omq receive throughput too low relative to publish throughput "
                 f"({consumed_total:g}/{published_total:g} messages)"
+            )
+        if consume_ratio > OMQ_MAX_CONSUME_TO_PUBLISH_RATIO:
+            return (
+                "omq duplicate message delivery detected "
+                f"(consumed {consumed_total:g} > published {published_total:g}, "
+                f"ratio {consume_ratio:.1f}x)"
             )
         return None
 
