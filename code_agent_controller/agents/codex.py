@@ -431,6 +431,9 @@ class CodexAgent(CodeAgentBase):
                 "--full-auto",
                 "-c", f"sandbox_permissions={permissions_str}",
             ]
+        # 禁用联网搜索，防止 agent 从网络搜索答案
+        cmd.extend(["-c", 'web_search="disabled"'])
+
         # Determine model: explicit controller model takes priority, then config.toml
         model_to_use = self.model
         if not model_to_use and self._has_custom_codex_config():

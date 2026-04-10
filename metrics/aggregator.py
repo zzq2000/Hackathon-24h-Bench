@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 import re
 import subprocess
@@ -324,18 +325,96 @@ def _parse_iterations(run_dir: str) -> list[IterationMetrics]:
     return results
 
 
+def _parse_timestamp(ts: str | None) -> datetime | None:
+    """Parse an ISO-format timestamp string into a datetime."""
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts)
+    except (ValueError, TypeError):
+        return None
+
+
+def _filter_by_max_hours(
+    iterations: list[IterationMetrics],
+    max_hours: float,
+) -> list[IterationMetrics]:
+    """Keep only iterations whose elapsed time from the first iteration is within *max_hours*.
+
+    Uses ``iteration_timestamp`` first, falling back to ``snapshot_timestamp``.
+    Iterations without any parseable timestamp are kept (no basis to exclude).
+    """
+    if not iterations:
+        return iterations
+
+    # Determine the start time from the first iteration
+    first = iterations[0]
+    start = _parse_timestamp(first.iteration_timestamp) or _parse_timestamp(first.snapshot_timestamp)
+    if start is None:
+        # Cannot compute elapsed time – return all
+        return iterations
+
+    filtered: list[IterationMetrics] = []
+    for im in iterations:
+        ts = _parse_timestamp(im.iteration_timestamp) or _parse_timestamp(im.snapshot_timestamp)
+        if ts is None:
+            # No timestamp – include by default
+            filtered.append(im)
+            continue
+        elapsed_hours = (ts - start).total_seconds() / 3600.0
+        if elapsed_hours <= max_hours:
+            filtered.append(im)
+
+    return filtered
+
+
+def _filter_benchmarks_by_max_hours(
+    benchmarks: list[BenchmarkSnapshot],
+    iterations: list[IterationMetrics],
+    max_hours: float,
+) -> list[BenchmarkSnapshot]:
+    """Keep only benchmarks whose snapshot_time is within *max_hours* of the first iteration."""
+    if not benchmarks or not iterations:
+        return benchmarks
+
+    first = iterations[0]
+    start = _parse_timestamp(first.iteration_timestamp) or _parse_timestamp(first.snapshot_timestamp)
+    if start is None:
+        return benchmarks
+
+    filtered: list[BenchmarkSnapshot] = []
+    for b in benchmarks:
+        ts = _parse_timestamp(b.snapshot_time)
+        if ts is None:
+            # No timestamp – include by default
+            filtered.append(b)
+            continue
+        elapsed_hours = (ts - start).total_seconds() / 3600.0
+        if elapsed_hours <= max_hours:
+            filtered.append(b)
+
+    return filtered
+
+
 def aggregate(
     run_dir: str,
     benchmarks: list[BenchmarkSnapshot] | None = None,
+    *,
+    max_hours: float | None = None,
 ) -> RunMetrics:
     """Build RunMetrics from a run log directory.
 
     Args:
         run_dir: Path to logs/runs/{run_id}/
         benchmarks: Pre-loaded benchmark snapshots (or empty list).
+        max_hours: If set, only include iterations whose elapsed time from the
+            first iteration is within this many hours.
     """
     run_id = os.path.basename(os.path.normpath(run_dir))
     iterations = _parse_iterations(run_dir)
+
+    if max_hours is not None:
+        iterations = _filter_by_max_hours(iterations, max_hours)
 
     agent = iterations[0].agent if iterations else "unknown"
     model = iterations[0].model if iterations else "unknown"
@@ -388,6 +467,9 @@ def aggregate(
 
     bench_list = benchmarks or []
     link_benchmarks_to_iterations(bench_list, iterations, workspace_git_dir=ws_git_dir)
+
+    if max_hours is not None and bench_list:
+        bench_list = _filter_benchmarks_by_max_hours(bench_list, iterations, max_hours)
 
     return RunMetrics(
         run_id=run_id,

@@ -45,8 +45,18 @@ def main() -> None:
         "--benchmark-dir",
         help="Benchmark output directory (output/{run_id}). Auto-detected if omitted.",
     )
+    parser.add_argument(
+        "--max-hours",
+        "--max_hours",
+        type=float,
+        default=None,
+        help="Only include iterations whose elapsed time from the first iteration is within this many hours.",
+    )
 
     args = parser.parse_args()
+
+    if args.max_hours is not None and args.max_hours < 0:
+        parser.error("--max-hours must be non-negative.")
 
     if not os.path.isdir(args.run_dir):
         print(f"Error: run directory not found: {args.run_dir}", file=sys.stderr)
@@ -57,7 +67,7 @@ def main() -> None:
     benchmarks = load_benchmarks(bench_dir) if bench_dir else []
 
     # Aggregate
-    run_metrics = aggregate(args.run_dir, benchmarks)
+    run_metrics = aggregate(args.run_dir, benchmarks, max_hours=args.max_hours)
 
     # Output
     if args.output:

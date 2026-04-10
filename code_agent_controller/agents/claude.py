@@ -167,6 +167,9 @@ class ClaudeCodeAgent(CodeAgentBase):
         # stream-json 在 --print (pipe) 模式下需要 --verbose
         cmd.extend(["--verbose", "--output-format", "stream-json"])
 
+        # 禁用联网搜索工具，防止 agent 从网络搜索答案
+        cmd.extend(["--disallowedTools", "WebSearch,WebFetch"])
+
         if is_container_mode():
             logger.info("Running in container mode, container provides security isolation")
             if self.dangerously_skip_permissions:

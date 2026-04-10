@@ -267,3 +267,10 @@ spec.base/
 
 # Runtime artifacts
 report.json
+
+scripts/*
+images/*
+
+NeurIPS_2026_Hackathon-24h-Bench/
+
+agent_logs/
